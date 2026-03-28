@@ -6,9 +6,9 @@
 
 面向校园心理健康场景的 AI 智能体系统，结合多模态感知、大语言模型和 Agentic RAG
 
-[!\[Java\](https://img.shields.io/badge/Java-17-orange.svg null)](https://openjdk.org/)
-[!\[Spring Boot\](https://img.shields.io/badge/Spring%20Boot-3.2-brightgreen.svg null)](https://spring.io/projects/spring-boot)
-[!\[License\](https://img.shields.io/badge/License-Internal-blue.svg null)]()
+[![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-brightgreen?style=flat-square)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Internal-blue?style=flat-square)]()
 
 [功能特性](#-功能特性) • [系统架构](#-系统架构) • [快速开始](#-快速开始) • [API文档](#-api-文档) • [模型训练](#-模型训练) • [部署指南](#-部署指南)
 
