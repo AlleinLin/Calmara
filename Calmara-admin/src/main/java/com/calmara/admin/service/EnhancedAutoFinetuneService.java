@@ -360,14 +360,15 @@ public class EnhancedAutoFinetuneService {
         channel.setCommand(remoteCommand);
         channel.connect();
 
-        InputStream in = channel.getInputStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-
-        String pidLine = reader.readLine();
-        String remotePid = pidLine != null ? pidLine.trim() : "unknown";
-
-        channel.disconnect();
-        connectionPool.releaseConnection(connection.getPoolKey());
+        String remotePid;
+        try (InputStream in = channel.getInputStream();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+            String pidLine = reader.readLine();
+            remotePid = pidLine != null ? pidLine.trim() : "unknown";
+        } finally {
+            channel.disconnect();
+            connectionPool.releaseConnection(connection.getPoolKey());
+        }
 
         webSocketHandler.broadcastLog(trainingId, "INFO", "远程训练进程已启动, PID: " + remotePid);
         trainingStatus.put("remotePid", remotePid);

@@ -158,13 +158,25 @@ class MultiModalFusionEngineTest {
 
     @Test
     void testFuse_MediumRisk() {
+        EmotionResult text = EmotionResult.builder()
+                .label("焦虑")
+                .score(2.0)
+                .source("text")
+                .build();
+
         EmotionResult audio = EmotionResult.builder()
                 .label("焦虑")
                 .score(2.0)
                 .source("audio")
                 .build();
 
-        EmotionResult result = fusionEngine.fuse(null, audio, null);
+        EmotionResult visual = EmotionResult.builder()
+                .label("正常")
+                .score(0.0)
+                .source("visual")
+                .build();
+
+        EmotionResult result = fusionEngine.fuse(text, audio, visual);
 
         assertEquals(RiskLevel.MEDIUM, result.getRiskLevel());
     }

@@ -38,8 +38,13 @@ public class ExcelMCPService {
 
         try {
             Files.createDirectories(filePath.getParent());
+        } catch (IOException e) {
+            log.error("创建目录失败", e);
+            throw new BusinessException(ErrorCode.EXCEL_WRITE_ERROR, "创建目录失败: " + e.getMessage());
+        }
 
-            Workbook workbook;
+        Workbook workbook = null;
+        try {
             Sheet sheet;
             int rowNum;
 
@@ -82,14 +87,20 @@ public class ExcelMCPService {
                 workbook.write(fos);
             }
 
-            workbook.close();
-
             log.info("Excel记录写入成功: {}", filePath);
             return filePath.toString();
 
         } catch (IOException e) {
             log.error("Excel写入失败", e);
             throw new BusinessException(ErrorCode.EXCEL_WRITE_ERROR, "Excel写入失败: " + e.getMessage());
+        } finally {
+            if (workbook != null) {
+                try {
+                    workbook.close();
+                } catch (IOException e) {
+                    log.warn("关闭workbook失败", e);
+                }
+            }
         }
     }
 
@@ -115,7 +126,7 @@ public class ExcelMCPService {
                 String rowUserId = row.getCell(0) != null ? row.getCell(0).getStringCellValue() : "";
                 String rowTime = row.getCell(5) != null ? row.getCell(5).getStringCellValue() : "";
 
-                if (userId.equals(rowUserId) && targetTime.equals(rowTime)) {
+                if (userId != null && userId.equals(rowUserId) && targetTime.equals(rowTime)) {
                     Cell statusCell = row.createCell(6);
                     statusCell.setCellValue("已撤销");
 

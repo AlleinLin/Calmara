@@ -148,7 +148,7 @@ public class AutoFinetuneService {
             long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             double memoryPercent = (double) usedMemory / totalMemory * 100;
 
-            log.debug("系统资源: CPU={:.1f}%, Memory={:.1f}%", cpuLoad, memoryPercent);
+            log.debug("系统资源: CPU={}%, Memory={}%", String.format("%.1f", cpuLoad), String.format("%.1f", memoryPercent));
 
             boolean resourcesOk = cpuLoad < maxCpuPercent && memoryPercent < maxMemoryPercent;
             

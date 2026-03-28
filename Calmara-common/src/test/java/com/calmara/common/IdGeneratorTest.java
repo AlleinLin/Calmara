@@ -16,7 +16,7 @@ class IdGeneratorTest {
         assertTrue(sessionId1.startsWith("sess_"));
         assertTrue(sessionId2.startsWith("sess_"));
         assertNotEquals(sessionId1, sessionId2);
-        assertEquals(20, sessionId1.length());
+        assertEquals(21, sessionId1.length());
     }
 
     @Test

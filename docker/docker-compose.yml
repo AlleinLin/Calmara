@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  calmara:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: calmara-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-test}
+      - CHROMA_URL=http://chroma:8000
+    depends_on:
+      - redis
+      - chroma
+    networks:
+      - calmara-network
+    volumes:
+      - calmara-reports:/tmp/calmara/reports
+
+  redis:
+    image: redis:7-alpine
+    container_name: calmara-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - calmara-network
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: calmara-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - calmara-network
+
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: calmara-whisper
+    ports:
+      - "9000:9000"
+    networks:
+      - calmara-network
+
+networks:
+  calmara-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  chroma-data:
+  calmara-reports:

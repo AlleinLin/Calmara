@@ -63,7 +63,7 @@ public class DynamicFusionWeightService {
     }
 
     public void updateWeight(String modality, double weight) {
-        FusionWeights.Builder builder = currentWeights.toBuilder();
+        FusionWeights.FusionWeightsBuilder builder = currentWeights.toBuilder();
         
         switch (modality.toLowerCase()) {
             case "text":
@@ -127,7 +127,7 @@ public class DynamicFusionWeightService {
 
     private FusionWeights adjustForSingleModality(FusionWeights base, Set<String> available) {
         String modality = available.iterator().next();
-        FusionWeights.Builder builder = FusionWeights.builder();
+        FusionWeights.FusionWeightsBuilder builder = FusionWeights.builder();
         
         switch (modality.toLowerCase()) {
             case "text":
@@ -289,7 +289,7 @@ public class DynamicFusionWeightService {
     }
 
     @Data
-    @Builder
+    @Builder(toBuilder = true)
     @NoArgsConstructor
     @AllArgsConstructor
     public static class FusionWeights {

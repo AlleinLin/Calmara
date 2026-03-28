@@ -12,10 +12,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,10 +42,18 @@ class VideoEmotionAnalyzerTest {
         videoEmotionAnalyzer = new VideoEmotionAnalyzer(mediaPipeClient, visualEmotionCalculator, restTemplate);
     }
 
+    private byte[] createValidImageBytes() throws IOException {
+        BufferedImage image = new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "jpg", baos);
+        return baos.toByteArray();
+    }
+
     @Test
-    void testAnalyzeVideo_WithImageFile_ReturnsResult() {
+    void testAnalyzeVideo_WithImageFile_ReturnsResult() throws IOException {
+        byte[] imageBytes = createValidImageBytes();
         MockMultipartFile imageFile = new MockMultipartFile(
-                "image", "test.jpg", "image/jpeg", new byte[100]);
+                "image", "test.jpg", "image/jpeg", imageBytes);
         
         FaceLandmarks mockLandmarks = new FaceLandmarks();
         mockLandmarks.setLandmarks(new float[468][3]);
@@ -52,7 +65,7 @@ class VideoEmotionAnalyzerTest {
                 .riskLevel(RiskLevel.LOW)
                 .build();
         
-        when(mediaPipeClient.analyzeFace(any(MultipartFile.class))).thenReturn(mockLandmarks);
+        when(mediaPipeClient.analyzeFaceFromImage(any(BufferedImage.class))).thenReturn(mockLandmarks);
         when(visualEmotionCalculator.calculate(any(FaceLandmarks.class))).thenReturn(mockEmotion);
         
         EmotionResult result = videoEmotionAnalyzer.analyzeVideo(imageFile);
@@ -66,8 +79,6 @@ class VideoEmotionAnalyzerTest {
     void testAnalyzeVideo_WithNoFace_ReturnsDefaultResult() {
         MockMultipartFile videoFile = new MockMultipartFile(
                 "video", "test.mp4", "video/mp4", new byte[100]);
-        
-        when(mediaPipeClient.analyzeFace(any(MultipartFile.class))).thenReturn(null);
         
         EmotionResult result = videoEmotionAnalyzer.analyzeVideo(videoFile);
         
@@ -88,9 +99,14 @@ class VideoEmotionAnalyzerTest {
     }
 
     @Test
-    void testAnalyzeVideo_WithPngImage_ReturnsResult() {
+    void testAnalyzeVideo_WithPngImage_ReturnsResult() throws IOException {
+        BufferedImage image = new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", baos);
+        byte[] imageBytes = baos.toByteArray();
+        
         MockMultipartFile pngFile = new MockMultipartFile(
-                "image", "test.png", "image/png", new byte[100]);
+                "image", "test.png", "image/png", imageBytes);
         
         FaceLandmarks mockLandmarks = new FaceLandmarks();
         mockLandmarks.setLandmarks(new float[468][3]);
@@ -102,7 +118,7 @@ class VideoEmotionAnalyzerTest {
                 .riskLevel(RiskLevel.MEDIUM)
                 .build();
         
-        when(mediaPipeClient.analyzeFace(any(MultipartFile.class))).thenReturn(mockLandmarks);
+        when(mediaPipeClient.analyzeFaceFromImage(any(BufferedImage.class))).thenReturn(mockLandmarks);
         when(visualEmotionCalculator.calculate(any(FaceLandmarks.class))).thenReturn(mockEmotion);
         
         EmotionResult result = videoEmotionAnalyzer.analyzeVideo(pngFile);

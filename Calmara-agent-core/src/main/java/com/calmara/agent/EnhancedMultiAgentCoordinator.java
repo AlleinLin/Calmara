@@ -9,24 +9,21 @@ import com.calmara.common.session.RedisSessionManager;
 import com.calmara.model.dto.EmotionResult;
 import com.calmara.model.enums.IntentType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.ChatClient;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,6 +32,8 @@ public class EnhancedMultiAgentCoordinator {
 
     private static final int MAX_AGENT_ITERATIONS = 5;
     private static final long AGENT_TIMEOUT_MS = 30000;
+    private static final String DEFAULT_EMOTION_LABEL = "NEUTRAL";
+    private static final double DEFAULT_EMOTION_SCORE = 0.0;
     
     private final ChatClient chatClient;
     private final IntentClassifier intentClassifier;
@@ -45,6 +44,7 @@ public class EnhancedMultiAgentCoordinator {
     
     private final ExecutorService agentExecutor = Executors.newFixedThreadPool(10);
     private final Map<String, AgentExecutionContext> activeContexts = new ConcurrentHashMap<>();
+    private volatile boolean shutdown = false;
 
     public EnhancedMultiAgentCoordinator(ChatClient chatClient,
                                          IntentClassifier intentClassifier,
@@ -60,22 +60,67 @@ public class EnhancedMultiAgentCoordinator {
         this.objectMapper = objectMapper;
     }
 
+    @PreDestroy
+    public void shutdown() {
+        shutdown = true;
+        log.info("EnhancedMultiAgentCoordinator正在关闭...");
+        
+        activeContexts.keySet().forEach(sessionId -> {
+            log.info("取消活动会话: {}", sessionId);
+        });
+        activeContexts.clear();
+        
+        agentExecutor.shutdown();
+        try {
+            if (!agentExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+                agentExecutor.shutdownNow();
+                if (!agentExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                    log.warn("ExecutorService未能正常关闭");
+                }
+            }
+        } catch (InterruptedException e) {
+            agentExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        log.info("EnhancedMultiAgentCoordinator已关闭");
+    }
+
+    private String safeGetEmotionLabel(EmotionResult emotion) {
+        return emotion != null && emotion.getLabel() != null 
+                ? emotion.getLabel() 
+                : DEFAULT_EMOTION_LABEL;
+    }
+
+    private double safeGetEmotionScore(EmotionResult emotion) {
+        return emotion != null && emotion.getScore() != null 
+                ? emotion.getScore() 
+                : DEFAULT_EMOTION_SCORE;
+    }
+
+    private String safeGetIntentName(IntentType intent) {
+        return intent != null ? intent.name() : "CHAT";
+    }
+
     public Flux<String> coordinate(String input, EmotionResult emotion, 
                                    String sessionId, String userId, IntentType intent) {
+        if (shutdown) {
+            return Flux.just("系统正在关闭，请稍后重试。");
+        }
+
         return Flux.create(emitter -> {
             AgentExecutionContext context = AgentExecutionContext.builder()
                     .sessionId(sessionId)
                     .userId(userId)
-                    .input(input)
+                    .input(input != null ? input : "")
                     .emotion(emotion)
-                    .intent(intent)
+                    .intent(intent != null ? intent : IntentType.CHAT)
                     .startTime(LocalDateTime.now())
                     .build();
             
             activeContexts.put(sessionId, context);
             
             try {
-                log.info("[MultiAgent:{}] 开始协调执行, intent={}", sessionId, intent);
+                log.info("[MultiAgent:{}] 开始协调执行, intent={}", sessionId, safeGetIntentName(intent));
                 
                 AgentPlan plan = createExecutionPlan(context);
                 context.setPlan(plan);
@@ -116,10 +161,10 @@ public class EnhancedMultiAgentCoordinator {
                 sessionManager.addChatMessage(sessionId, 
                         RedisSessionManager.ChatMessage.builder()
                                 .role("user")
-                                .content(input)
-                                .intent(intent != null ? intent.name() : null)
-                                .emotion(emotion != null ? emotion.getLabel() : null)
-                                .emotionScore(emotion != null ? emotion.getScore() : null)
+                                .content(input != null ? input : "")
+                                .intent(safeGetIntentName(intent))
+                                .emotion(safeGetEmotionLabel(emotion))
+                                .emotionScore(safeGetEmotionScore(emotion))
                                 .build());
                 
                 sessionManager.addChatMessage(sessionId, 
@@ -135,7 +180,9 @@ public class EnhancedMultiAgentCoordinator {
                 log.error("[MultiAgent:{}] 协调执行失败", sessionId, e);
                 String fallback = generateFallbackResponse(input, emotion, intent);
                 for (char c : fallback.toCharArray()) {
-                    emitter.next(String.valueOf(c));
+                    if (!emitter.isCancelled()) {
+                        emitter.next(String.valueOf(c));
+                    }
                 }
                 emitter.complete();
             } finally {
@@ -145,7 +192,7 @@ public class EnhancedMultiAgentCoordinator {
     }
 
     private AgentPlan createExecutionPlan(AgentExecutionContext context) {
-        IntentType intent = context.getIntent();
+        IntentType intent = context.getIntent() != null ? context.getIntent() : IntentType.CHAT;
         EmotionResult emotion = context.getEmotion();
         
         List<AgentTask> tasks = new ArrayList<>();
@@ -201,7 +248,7 @@ public class EnhancedMultiAgentCoordinator {
                 break;
         }
         
-        if (emotion != null && emotion.getScore() >= 2.0) {
+        if (emotion != null && emotion.getScore() != null && emotion.getScore() >= 2.0) {
             tasks.add(AgentTask.builder()
                     .agentName("EmotionTrackingAgent")
                     .taskType("tracking")
@@ -233,6 +280,9 @@ public class EnhancedMultiAgentCoordinator {
         
         try {
             CompletableFuture<AgentResult> future = CompletableFuture.supplyAsync(() -> {
+                if (shutdown) {
+                    return AgentResult.failure("系统正在关闭");
+                }
                 switch (agentName) {
                     case "QueryAnalysisAgent":
                         return executeQueryAnalysis(context, previousResults);
@@ -289,9 +339,9 @@ public class EnhancedMultiAgentCoordinator {
                 }
                 """,
                 context.getInput(),
-                context.getEmotion().getLabel(),
-                context.getEmotion().getScore(),
-                context.getIntent().name()
+                safeGetEmotionLabel(context.getEmotion()),
+                safeGetEmotionScore(context.getEmotion()),
+                safeGetIntentName(context.getIntent())
         );
         
         try {
@@ -304,6 +354,7 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("查询分析失败", e);
             return AgentResult.failure("查询分析失败: " + e.getMessage());
         }
     }
@@ -330,7 +381,9 @@ public class EnhancedMultiAgentCoordinator {
                         if (end == -1) end = content.indexOf("}", colonPos);
                         String scoreStr = content.substring(colonPos + 1, end).trim();
                         riskScore = Double.parseDouble(scoreStr);
-                    } catch (Exception ignored) {}
+                    } catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+                        log.warn("解析风险分数失败: {}", e.getMessage());
+                    }
                 }
                 
                 if (content.contains("HIGH")) {
@@ -348,6 +401,7 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("风险评估失败", e);
             return AgentResult.failure("风险评估失败: " + e.getMessage());
         }
     }
@@ -380,8 +434,8 @@ public class EnhancedMultiAgentCoordinator {
                 注意：语气要温和、专业，避免可能引起负面反应的表述。
                 """,
                 context.getInput(),
-                context.getEmotion().getLabel(),
-                context.getEmotion().getScore(),
+                safeGetEmotionLabel(context.getEmotion()),
+                safeGetEmotionScore(context.getEmotion()),
                 riskScore
         );
         
@@ -395,6 +449,7 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("危机干预失败", e);
             return AgentResult.failure("危机干预失败: " + e.getMessage());
         }
     }
@@ -438,7 +493,7 @@ public class EnhancedMultiAgentCoordinator {
                 请提供专业、温和、有同理心的回复。
                 """,
                 context.getInput(),
-                context.getEmotion().getLabel(),
+                safeGetEmotionLabel(context.getEmotion()),
                 ragContext.isEmpty() ? "无特定参考" : ragContext
         );
         
@@ -451,6 +506,7 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("心理咨询失败", e);
             return AgentResult.failure("心理咨询失败: " + e.getMessage());
         }
     }
@@ -466,7 +522,7 @@ public class EnhancedMultiAgentCoordinator {
                 请提供轻松、友好的回复。
                 """,
                 context.getInput(),
-                context.getEmotion().getLabel()
+                safeGetEmotionLabel(context.getEmotion())
         );
         
         try {
@@ -478,6 +534,7 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("聊天失败", e);
             return AgentResult.failure("聊天失败: " + e.getMessage());
         }
     }
@@ -485,18 +542,23 @@ public class EnhancedMultiAgentCoordinator {
     private AgentResult executeEmotionTracking(AgentExecutionContext context,
                                                Map<String, AgentResult> previousResults) {
         try {
+            EmotionResult emotion = context.getEmotion();
+            if (emotion == null) {
+                return AgentResult.failure("无情绪数据可追踪");
+            }
+            
             RedisSessionManager.EmotionTrend trend = sessionManager.analyzeEmotionTrend(
                     context.getSessionId(), 10);
             
             sessionManager.addEmotionHistory(
                     context.getSessionId(),
                     RedisSessionManager.EmotionHistoryEntry.of(
-                            context.getEmotion().getLabel(),
-                            context.getEmotion().getScore(),
-                            context.getEmotion().getConfidence(),
-                            context.getEmotion().getSource(),
-                            context.getEmotion().getFeatures() != null 
-                                    ? context.getEmotion().getFeatures().entrySet().stream()
+                            safeGetEmotionLabel(emotion),
+                            safeGetEmotionScore(emotion),
+                            emotion.getConfidence() != null ? emotion.getConfidence() : 0.0,
+                            emotion.getSource() != null ? emotion.getSource() : "unknown",
+                            emotion.getFeatures() != null 
+                                    ? emotion.getFeatures().entrySet().stream()
                                             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() instanceof Number ? ((Number) e.getValue()).doubleValue() : 0.0))
                                     : null
                     )
@@ -509,16 +571,15 @@ public class EnhancedMultiAgentCoordinator {
             
             return AgentResult.success(data);
         } catch (Exception e) {
+            log.error("情绪追踪失败", e);
             return AgentResult.failure("情绪追踪失败: " + e.getMessage());
         }
     }
 
     private AgentResult executeResponseSynthesis(AgentExecutionContext context,
                                                  Map<String, AgentResult> previousResults) {
-        StringBuilder synthesis = new StringBuilder();
-        
         AgentResult crisisResult = previousResults.get("CrisisInterventionAgent");
-        if (crisisResult != null && crisisResult.isSuccess()) {
+        if (crisisResult != null && crisisResult.isSuccess() && crisisResult.getData() != null) {
             Object intervention = crisisResult.getData().get("intervention");
             if (intervention != null) {
                 return AgentResult.success(Map.of("response", intervention.toString()));
@@ -526,7 +587,7 @@ public class EnhancedMultiAgentCoordinator {
         }
         
         AgentResult counselingResult = previousResults.get("CounselingAgent");
-        if (counselingResult != null && counselingResult.isSuccess()) {
+        if (counselingResult != null && counselingResult.isSuccess() && counselingResult.getData() != null) {
             Object counseling = counselingResult.getData().get("counseling");
             if (counseling != null) {
                 return AgentResult.success(Map.of("response", counseling.toString()));
@@ -534,7 +595,7 @@ public class EnhancedMultiAgentCoordinator {
         }
         
         AgentResult chatResult = previousResults.get("ChatAgent");
-        if (chatResult != null && chatResult.isSuccess()) {
+        if (chatResult != null && chatResult.isSuccess() && chatResult.getData() != null) {
             Object response = chatResult.getData().get("response");
             if (response != null) {
                 return AgentResult.success(Map.of("response", response.toString()));
@@ -548,7 +609,7 @@ public class EnhancedMultiAgentCoordinator {
                                      Map<String, AgentResult> results) {
         AgentResult synthesisResult = results.get("ResponseSynthesisAgent");
         
-        if (synthesisResult != null && synthesisResult.isSuccess()) {
+        if (synthesisResult != null && synthesisResult.isSuccess() && synthesisResult.getData() != null) {
             Object response = synthesisResult.getData().get("response");
             if (response != null) {
                 return response.toString();
@@ -563,7 +624,7 @@ public class EnhancedMultiAgentCoordinator {
     }
 
     private String generateFallbackResponse(String input, EmotionResult emotion, IntentType intent) {
-        if (emotion != null && emotion.getScore() >= 3.0) {
+        if (emotion != null && emotion.getScore() != null && emotion.getScore() >= 3.0) {
             return "我听到了你的感受，感谢你愿意和我分享。如果你正在经历困难的时刻，" +
                    "我建议你尽快和信任的人或专业心理咨询师聊聊。你的感受很重要。";
         }
@@ -600,6 +661,9 @@ public class EnhancedMultiAgentCoordinator {
         private List<ExecutionLog> executionLogs = new ArrayList<>();
         
         public void addExecutionLog(String agentName, AgentResult result) {
+            if (executionLogs == null) {
+                executionLogs = new ArrayList<>();
+            }
             executionLogs.add(new ExecutionLog(agentName, result, LocalDateTime.now()));
         }
     }

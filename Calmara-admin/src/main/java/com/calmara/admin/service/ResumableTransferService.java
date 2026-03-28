@@ -2,13 +2,13 @@ package com.calmara.admin.service;
 
 import com.calmara.admin.entity.FinetuneConfigEntity;
 import com.jcraft.jsch.*;
+import jakarta.annotation.PreDestroy;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.*;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.*;
@@ -22,13 +22,28 @@ public class ResumableTransferService {
     private final Semaphore transferSemaphore = new Semaphore(MAX_CONCURRENT_TRANSFERS);
     
     private final Map<String, TransferProgress> activeTransfers = new ConcurrentHashMap<>();
+    private volatile boolean shutdown = false;
+
+    @PreDestroy
+    public void shutdown() {
+        shutdown = true;
+        activeTransfers.values().forEach(p -> p.setCancelled(true));
+        log.info("ResumableTransferService已关闭，取消所有活动传输");
+    }
 
     public UploadResult uploadWithResume(FinetuneConfigEntity.RemoteServerConfig config,
                                           String localPath, String remotePath,
                                           TransferProgressCallback callback) {
+        if (shutdown) {
+            return UploadResult.failure("服务正在关闭，无法启动新传输");
+        }
+        
         String transferId = UUID.randomUUID().toString();
         TransferProgress progress = new TransferProgress(transferId, localPath, remotePath, true);
         activeTransfers.put(transferId, progress);
+        
+        Session session = null;
+        ChannelSftp sftp = null;
         
         try {
             transferSemaphore.acquire();
@@ -41,10 +56,10 @@ public class ResumableTransferService {
             long fileSize = localFile.length();
             progress.setTotalBytes(fileSize);
             
-            Session session = createSession(config);
+            session = createSession(config);
             session.connect();
             
-            ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
+            sftp = (ChannelSftp) session.openChannel("sftp");
             sftp.connect();
             
             long remoteSize = getRemoteFileSize(sftp, remotePath);
@@ -57,12 +72,12 @@ public class ResumableTransferService {
             
             ensureRemoteDirectory(sftp, remotePath);
             
+            final ChannelSftp finalSftp = sftp;
             try (RandomAccessFile raf = new RandomAccessFile(localFile, "r")) {
                 raf.seek(offset);
                 
-                sftp.put(new InputStream() {
+                finalSftp.put(new InputStream() {
                     private long remaining = fileSize - offset;
-                    private byte[] buffer = new byte[8192];
                     
                     @Override
                     public int read() throws IOException {
@@ -74,6 +89,7 @@ public class ResumableTransferService {
                     @Override
                     public int read(byte[] b, int off, int len) throws IOException {
                         if (remaining <= 0) return -1;
+                        if (progress.isCancelled()) return -1;
                         
                         int toRead = (int) Math.min(len, remaining);
                         int read = raf.read(b, off, toRead);
@@ -92,20 +108,19 @@ public class ResumableTransferService {
                 }, remotePath, ChannelSftp.RESUME);
             }
             
-            sftp.disconnect();
-            session.disconnect();
-            
             progress.setCompleted(true);
             log.info("文件上传完成: {} -> {}", localPath, remotePath);
             
             return UploadResult.success(localPath, remotePath, fileSize);
             
         } catch (Exception e) {
-            log.error("文件上传失败: {}", e.getMessage());
+            log.error("文件上传失败: {}", e.getMessage(), e);
             progress.setError(e.getMessage());
             return UploadResult.failure(e.getMessage());
             
         } finally {
+            closeQuietly(sftp, "SFTP");
+            closeQuietly(session, "SSH Session");
             transferSemaphore.release();
             activeTransfers.remove(transferId);
         }
@@ -114,17 +129,24 @@ public class ResumableTransferService {
     public DownloadResult downloadWithResume(FinetuneConfigEntity.RemoteServerConfig config,
                                               String remotePath, String localPath,
                                               TransferProgressCallback callback) {
+        if (shutdown) {
+            return DownloadResult.failure("服务正在关闭，无法启动新传输");
+        }
+        
         String transferId = UUID.randomUUID().toString();
         TransferProgress progress = new TransferProgress(transferId, remotePath, localPath, false);
         activeTransfers.put(transferId, progress);
         
+        Session session = null;
+        ChannelSftp sftp = null;
+        
         try {
             transferSemaphore.acquire();
             
-            Session session = createSession(config);
+            session = createSession(config);
             session.connect();
             
-            ChannelSftp sftp = (ChannelSftp) session.openChannel("sftp");
+            sftp = (ChannelSftp) session.openChannel("sftp");
             sftp.connect();
             
             SftpATTRS attrs = sftp.stat(remotePath);
@@ -138,8 +160,6 @@ public class ResumableTransferService {
                 offset = localFile.length();
                 if (offset >= fileSize) {
                     log.info("文件已存在且完整: {}", localPath);
-                    sftp.disconnect();
-                    session.disconnect();
                     return DownloadResult.success(remotePath, localPath, fileSize);
                 }
                 log.info("检测到可续传: remotePath={}, localPath={}, offset={}", remotePath, localPath, offset);
@@ -148,15 +168,19 @@ public class ResumableTransferService {
                 localFile.getParentFile().mkdirs();
             }
             
+            final ChannelSftp finalSftp = sftp;
             try (RandomAccessFile raf = new RandomAccessFile(localFile, "rw")) {
                 raf.seek(offset);
                 
                 final long finalOffset = offset;
-                sftp.get(remotePath, new OutputStream() {
+                finalSftp.get(remotePath, new OutputStream() {
                     private long written = finalOffset;
                     
                     @Override
                     public void write(int b) throws IOException {
+                        if (progress.isCancelled()) {
+                            throw new IOException("传输已取消");
+                        }
                         raf.write(b);
                         written++;
                         progress.setTransferredBytes(written);
@@ -168,6 +192,9 @@ public class ResumableTransferService {
                     
                     @Override
                     public void write(byte[] b, int off, int len) throws IOException {
+                        if (progress.isCancelled()) {
+                            throw new IOException("传输已取消");
+                        }
                         raf.write(b, off, len);
                         written += len;
                         progress.setTransferredBytes(written);
@@ -179,22 +206,45 @@ public class ResumableTransferService {
                 });
             }
             
-            sftp.disconnect();
-            session.disconnect();
-            
             progress.setCompleted(true);
             log.info("文件下载完成: {} -> {}", remotePath, localPath);
             
             return DownloadResult.success(remotePath, localPath, fileSize);
             
         } catch (Exception e) {
-            log.error("文件下载失败: {}", e.getMessage());
+            log.error("文件下载失败: {}", e.getMessage(), e);
             progress.setError(e.getMessage());
             return DownloadResult.failure(e.getMessage());
             
         } finally {
+            closeQuietly(sftp, "SFTP");
+            closeQuietly(session, "SSH Session");
             transferSemaphore.release();
             activeTransfers.remove(transferId);
+        }
+    }
+
+    private void closeQuietly(ChannelSftp sftp, String name) {
+        if (sftp != null) {
+            try {
+                if (sftp.isConnected()) {
+                    sftp.disconnect();
+                }
+            } catch (Exception e) {
+                log.warn("关闭{}连接时出错: {}", name, e.getMessage());
+            }
+        }
+    }
+
+    private void closeQuietly(Session session, String name) {
+        if (session != null) {
+            try {
+                if (session.isConnected()) {
+                    session.disconnect();
+                }
+            } catch (Exception e) {
+                log.warn("关闭{}连接时出错: {}", name, e.getMessage());
+            }
         }
     }
 
@@ -212,6 +262,7 @@ public class ResumableTransferService {
             return remoteSize;
             
         } catch (Exception e) {
+            log.warn("检查续传条件失败: {}", e.getMessage());
             return 0;
         }
     }
@@ -233,7 +284,13 @@ public class ResumableTransferService {
             sftp.cd(parentPath);
         } catch (SftpException e) {
             ensureRemoteDirectory(sftp, parentPath);
-            sftp.mkdir(parentPath);
+            try {
+                sftp.mkdir(parentPath);
+            } catch (SftpException ex) {
+                if (ex.id != ChannelSftp.SSH_FX_FAILURE) {
+                    throw ex;
+                }
+            }
         }
     }
 
@@ -255,10 +312,18 @@ public class ResumableTransferService {
         }
         
         Properties prop = new Properties();
-        prop.put("StrictHostKeyChecking", "no");
+        String knownHostsFile = System.getProperty("user.home") + "/.ssh/known_hosts";
+        File knownHosts = new File(knownHostsFile);
+        if (knownHosts.exists()) {
+            jsch.setKnownHosts(knownHostsFile);
+            prop.put("StrictHostKeyChecking", "ask");
+        } else {
+            prop.put("StrictHostKeyChecking", "accept-new");
+            log.warn("未找到known_hosts文件，使用accept-new策略。建议配置SSH主机密钥以提高安全性。");
+        }
         prop.put("PreferredAuthentications", "publickey,password");
         session.setConfig(prop);
-        session.setTimeout(config.getConnectionTimeout());
+        session.setTimeout(config.getConnectionTimeout() > 0 ? config.getConnectionTimeout() : 30000);
         
         return session;
     }
@@ -275,6 +340,7 @@ public class ResumableTransferService {
         TransferProgress progress = activeTransfers.get(transferId);
         if (progress != null) {
             progress.setCancelled(true);
+            log.info("已取消传输: {}", transferId);
         }
     }
 
