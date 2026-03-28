@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calmara - 智能心理关怀助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #475569;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --gradient-calm: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.3);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.4);
+            --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--gradient-calm);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--gradient-calm);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tagline {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .new-chat-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 16px;
+            background: transparent;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+
+        .chat-history {
+            margin-top: 20px;
+        }
+
+        .chat-history-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-history-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+        }
+
+        .chat-history-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .chat-history-item.active {
+            background: var(--primary-dark);
+            color: var(--text-primary);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .chat-header {
+            padding: 20px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-secondary);
+        }
+
+        .chat-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .emotion-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .emotion-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .emotion-dot.anxious { background: var(--warning); }
+        .emotion-dot.depressed { background: #f97316; }
+        .emotion-dot.high-risk { background: var(--danger); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .message {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.user {
+            background: var(--gradient-primary);
+        }
+
+        .message-avatar.assistant {
+            background: var(--gradient-calm);
+        }
+
+        .message-content {
+            flex: 1;
+            max-width: 800px;
+        }
+
+        .message-role {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .message-text {
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text-primary);
+        }
+
+        .message-text p {
+            margin-bottom: 12px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        .chat-input-container {
+            padding: 24px 32px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            max-height: 150px;
+            line-height: 1.5;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .send-btn {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-icon {
+            width: 120px;
+            height: 120px;
+            background: var(--gradient-calm);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .empty-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .empty-desc {
+            font-size: 15px;
+            color: var(--text-secondary);
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        .capabilities {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 40px;
+            max-width: 600px;
+        }
+
+        .capability {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .capability:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+        }
+
+        .capability-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .capability-title {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-secondary);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">🧠</div>
+                    <div>
+                        <div class="logo-text">Calmara</div>
+                        <div class="tagline">智能心理关怀助手</div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-content">
+                <button class="new-chat-btn" onclick="startNewChat()">
+                    <span>✨</span>
+                    <span>开始新的对话</span>
+                </button>
+                <div class="chat-history">
+                    <div class="chat-history-title">最近对话</div>
+                    <div id="chatHistoryList"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="chat-header">
+                <h1 class="chat-title" id="chatTitle">新的对话</h1>
+                <div class="emotion-indicator" id="emotionIndicator">
+                    <span class="emotion-dot" id="emotionDot"></span>
+                    <span id="emotionText">情绪正常</span>
+                </div>
+            </header>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🌊</div>
+                    <h2 class="empty-title">欢迎来到 Calmara</h2>
+                    <p class="empty-desc">
+                        我是你的智能心理关怀助手。在这里，你可以安全地倾诉心事，
+                        我会耐心倾听并提供专业的心理支持。
+                    </p>
+                    <div class="capabilities">
+                        <div class="capability">
+                            <div class="capability-icon">💬</div>
+                            <div class="capability-title">倾诉倾听</div>
+                        </div>
+                        <div class="capability">
+                            <div class="capability-icon">😊</div>
+                            <div class="capability-title">情绪识别</div>
+                        </div>
+                        <div class="capability">
+                            <div class="capability-icon">📊</div>
+                            <div class="capability-title">专业分析</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        class="chat-input"
+                        id="chatInput"
+                        placeholder="输入你想倾诉的内容..."
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                    <div class="input-actions">
+                        <button class="action-btn" onclick="toggleAudio()" title="语音输入">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                        </button>
+                        <button class="action-btn" onclick="toggleImage()" title="图片/视频">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                        </button>
+                        <button class="action-btn send-btn" id="sendBtn" onclick="sendMessage()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <h2 class="modal-title">欢迎使用 Calmara</h2>
+            <div class="input-group">
+                <label class="input-label">用户名</label>
+                <input type="text" class="input-field" id="username" placeholder="请输入用户名">
+            </div>
+            <div class="input-group">
+                <label class="input-label">密码</label>
+                <input type="password" class="input-field" id="password" placeholder="请输入密码">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="guestLogin()">游客登录</button>
+                <button class="btn btn-primary" onclick="userLogin()">登录</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentSessionId = null;
+        let isAuthenticated = false;
+        let eventSource = null;
+        let accumulatedMessage = '';
+        let currentEmotion = { label: '正常', score: 0, riskLevel: 'LOW' };
+
+        const capabilities = [
+            { icon: '💬', title: '倾诉倾听' },
+            { icon: '😊', title: '情绪识别' },
+            { icon: '📊', title: '专业分析' },
+            { icon: '🔐', title: '隐私保护' },
+            { icon: '⚡', title: '即时响应' },
+            { icon: '🌟', title: '智能建议' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            loadChatHistory();
+        });
+
+        function checkAuth() {
+            const token = localStorage.getItem('calmara_token');
+            if (token) {
+                isAuthenticated = true;
+            } else {
+                document.getElementById('loginModal').classList.add('active');
+            }
+        }
+
+        function guestLogin() {
+            localStorage.setItem('calmara_token', 'guest_token');
+            localStorage.setItem('calmara_user', 'guest');
+            isAuthenticated = true;
+            document.getElementById('loginModal').classList.remove('active');
+            showToast('欢迎游客体验！', 'success');
+        }
+
+        function userLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    localStorage.setItem('calmara_token', data.data.token);
+                    localStorage.setItem('calmara_user', data.data.username);
+                    isAuthenticated = true;
+                    document.getElementById('loginModal').classList.remove('active');
+                    showToast('登录成功！', 'success');
+                } else {
+                    showToast(data.message || '登录失败', 'error');
+                }
+            })
+            .catch(() => {
+                localStorage.setItem('calmara_token', 'guest_token');
+                localStorage.setItem('calmara_user', username || 'guest');
+                isAuthenticated = true;
+                document.getElementById('loginModal').classList.remove('active');
+                showToast('登录成功（离线模式）', 'success');
+            });
+        }
+
+        function loadChatHistory() {
+            const history = JSON.parse(localStorage.getItem('calmara_history') || '[]');
+            const list = document.getElementById('chatHistoryList');
+
+            history.slice(0, 10).forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'chat-history-item' + (index === 0 ? ' active' : '');
+                div.innerHTML = `<span>💬</span><span>${item.title}</span>`;
+                div.onclick = () => loadSession(item.sessionId);
+                list.appendChild(div);
+            });
+        }
+
+        function startNewChat() {
+            currentSessionId = null;
+            accumulatedMessage = '';
+            document.getElementById('chatMessages').innerHTML = document.getElementById('chatMessages').innerHTML =
+                `<div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🌊</div>
+                    <h2 class="empty-title">欢迎来到 Calmara</h2>
+                    <p class="empty-desc">我是你的智能心理关怀助手。在这里，你可以安全地倾诉心事，我会耐心倾听并提供专业的心理支持。</p>
+                </div>`;
+            document.getElementById('chatTitle').textContent = '新的对话';
+            updateEmotionIndicator({ label: '正常', score: 0, riskLevel: 'LOW' });
+        }
+
+        function loadSession(sessionId) {
+            showToast('加载历史会话...', 'success');
+        }
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message && !document.getElementById('emptyState')) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+
+            if (document.getElementById('emptyState')) {
+                document.getElementById('emptyState').style.display = 'none';
+            }
+
+            addMessage('user', message);
+            saveToHistory(message);
+
+            const token = localStorage.getItem('calmara_token');
+            const formData = new FormData();
+            formData.append('text', message);
+            formData.append('sessionId', currentSessionId || '');
+
+            showTypingIndicator();
+
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource(`/api/chat/stream?text=${encodeURIComponent(message)}&sessionId=${currentSessionId || ''}`);
+
+            accumulatedMessage = '';
+
+            eventSource.addEventListener('emotion', (e) => {
+                const emotion = JSON.parse(e.data);
+                currentEmotion = emotion;
+                updateEmotionIndicator(emotion);
+            });
+
+            eventSource.addEventListener('message', (e) => {
+                removeTypingIndicator();
+                accumulatedMessage += e.data;
+                updateAssistantMessage(accumulatedMessage);
+            });
+
+            eventSource.addEventListener('done', (e) => {
+                const data = JSON.parse(e.data);
+                currentSessionId = data.sessionId;
+                eventSource.close();
+                eventSource = null;
+            });
+
+            eventSource.onerror = () => {
+                removeTypingIndicator();
+                addMessage('assistant', '抱歉，服务暂时不可用，请稍后再试。');
+                eventSource.close();
+                eventSource = null;
+            };
+        }
+
+        function addMessage(role, content) {
+            const container = document.getElementById('chatMessages');
+            const isUser = role === 'user';
+
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.innerHTML = `
+                <div class="message-avatar ${role}">${isUser ? '👤' : '🧠'}</div>
+                <div class="message-content">
+                    <div class="message-role">${isUser ? '你' : 'Calmara'}</div>
+                    <div class="message-text">${formatMessage(content)}</div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+
+            return div;
+        }
+
+        function updateAssistantMessage(content) {
+            const messages = document.querySelectorAll('.message');
+            const lastMessage = messages[messages.length - 1];
+
+            if (lastMessage && lastMessage.querySelector('.message-avatar').classList.contains('assistant')) {
+                lastMessage.querySelector('.message-text').innerHTML = formatMessage(content);
+            } else {
+                addMessage('assistant', content);
+            }
+        }
+
+        function formatMessage(content) {
+            return content
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        }
+
+        function showTypingIndicator() {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.id = 'typingIndicator';
+            div.innerHTML = `
+                <div class="message-avatar assistant">🧠</div>
+                <div class="message-content">
+                    <div class="message-role">Calmara</div>
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function updateEmotionIndicator(emotion) {
+            const dot = document.getElementById('emotionDot');
+            const text = document.getElementById('emotionText');
+
+            dot.className = 'emotion-dot';
+
+            if (emotion.riskLevel === 'HIGH' || emotion.label === '高风险') {
+                dot.classList.add('high-risk');
+                text.textContent = '高风险 - 请关注';
+            } else if (emotion.label === '低落') {
+                dot.classList.add('depressed');
+                text.textContent = '情绪低落';
+            } else if (emotion.label === '焦虑') {
+                dot.classList.add('anxious');
+                text.textContent = '轻微焦虑';
+            } else {
+                text.textContent = '情绪正常';
+            }
+        }
+
+        function saveToHistory(message) {
+            const history = JSON.parse(localStorage.getItem('calmara_history') || '[]');
+            history.unshift({
+                sessionId: currentSessionId || 'new',
+                title: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
+                timestamp: Date.now()
+            });
+            localStorage.setItem('calmara_history', JSON.stringify(history.slice(0, 50)));
+        }
+
+        function toggleAudio() {
+            showToast('语音功能开发中...', 'success');
+        }
+
+        function toggleImage() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,video/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    showToast(`已选择: ${file.name}`, 'success');
+                }
+            };
+            input.click();
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{
+    "model_config": {
+        "base_model": "Qwen/Qwen2.5-7B-Instruct",
+        "model_path_local": "e:/项目AI/Calmara/llm/models/Qwen/Qwen2.5-7B-Instruct",
+        "vocab_size": 151936,
+        "hidden_size": 3584,
+        "num_hidden_layers": 28,
+        "num_attention_heads": 28,
+        "intermediate_size": 18944
+    },
+    "lora_config": {
+        "rank": 32,
+        "alpha": 64,
+        "dropout": 0.1,
+        "target_modules": [
+            "q_proj",
+            "k_proj", 
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj"
+        ],
+        "bias": "none",
+        "task_type": "CAUSAL_LM"
+    },
+    "training_config": {
+        "output_dir": "e:/项目AI/Calmara/llm/output",
+        "num_train_epochs": 3,
+        "per_device_train_batch_size": 4,
+        "gradient_accumulation_steps": 8,
+        "learning_rate": 1e-4,
+        "warmup_ratio": 0.1,
+        "warmup_steps": 50,
+        "save_steps": 500,
+        "logging_steps": 10,
+        "max_grad_norm": 1.0,
+        "fp16": true,
+        "bf16": false,
+        "optim": "adamw_torch",
+        "max_length": 512,
+        "lr_scheduler_type": "cosine",
+        "weight_decay": 0.01,
+        "eval_steps": 500,
+        "save_total_limit": 3,
+        "load_best_model_at_end": true,
+        "metric_for_best_model": "loss",
+        "greater_is_better": false
+    },
+    "quantization": {
+        "load_in_4bit": true,
+        "bnb_4bit_quant_type": "nf4",
+        "bnb_4bit_compute_dtype": "float16",
+        "bnb_4bit_use_double_quant": true
+    },
+    "dataset": {
+        "train_path": "e:/项目AI/Calmara/llm/dataset/train.json",
+        "test_path": "e:/项目AI/Calmara/llm/dataset/test.json",
+        "source_path": "e:/项目AI/Calmara/knowledge-base/external/SoulChatCorpus/SoulChatCorpus-sft-multi-Turn.json",
+        "max_samples": 50000,
+        "format": "conversational",
+        "train_test_split": 0.95
+    },
+    "generation_config": {
+        "max_new_tokens": 512,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "do_sample": true
+    }
+}

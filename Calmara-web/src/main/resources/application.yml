@@ -1,0 +1,229 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: calmara
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 200MB
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:calmara}?useUnicode=true&characterEncoding=utf-8
+    username: ${DB_USERNAME:calmara}
+    password: ${DB_PASSWORD:calmara_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      idle-timeout: 300000
+      connection-timeout: 20000
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 0
+    timeout: 10000
+
+calmara:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiration: ${JWT_EXPIRATION:86400000}
+
+  ollama:
+    base-url: ${OLLAMA_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:qwen2.5:7b-chat}
+    finetuned-model: ${OLLAMA_FINETUNED_MODEL:qwen2.5-calmara:latest}
+    timeout: ${OLLAMA_TIMEOUT:120000}
+
+  emotion:
+    use-finetuned-model: ${EMOTION_USE_FINETUNED:true}
+    text-weight: ${EMOTION_TEXT_WEIGHT:0.1}
+    audio-weight: ${EMOTION_AUDIO_WEIGHT:0.4}
+    visual-weight: ${EMOTION_VISUAL_WEIGHT:0.4}
+    video-weight: ${EMOTION_VIDEO_WEIGHT:0.1}
+    confidence-threshold: ${EMOTION_CONFIDENCE_THRESHOLD:0.6}
+
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+
+  embedding:
+    provider: ${EMBEDDING_PROVIDER:ollama}
+    dimension: ${EMBEDDING_DIMENSION:1024}
+    cache:
+      max-size: ${EMBEDDING_CACHE_MAX:100000}
+      expire-after-write: ${EMBEDDING_CACHE_EXPIRE:6h}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+      url: ${OPENAI_EMBEDDING_URL:https://api.openai.com/v1/embeddings}
+    ollama:
+      url: ${OLLAMA_URL:http://localhost:11434}/api/embeddings
+      model: ${OLLAMA_EMBEDDING_MODEL:bge-m3}
+    qwen:
+      api-key: ${QWEN_API_KEY:}
+      model: ${QWEN_EMBEDDING_MODEL:text-embedding-v3}
+      url: ${QWEN_EMBEDDING_URL:https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding}
+    bge-m3:
+      url: ${BGE_M3_URL:http://localhost:33330/embed}
+      dense: ${BGE_M3_DENSE:true}
+      sparse: ${BGE_M3_SPARSE:false}
+      colbert: ${BGE_M3_COLBERT:false}
+    router:
+      strategy: ${EMBEDDING_ROUTER_STRATEGY:PRIMARY_FALLBACK}
+
+  chroma:
+    url: ${CHROMA_URL:http://localhost:8000}
+    collection-name: ${CHROMA_COLLECTION:psychological_knowledge}
+    enabled: ${CHROMA_ENABLED:true}
+    connect-timeout: ${CHROMA_CONNECT_TIMEOUT:5000}
+    read-timeout: ${CHROMA_READ_TIMEOUT:30000}
+    retry-count: ${CHROMA_RETRY_COUNT:3}
+    retry-delay: ${CHROMA_RETRY_DELAY:1000}
+
+  milvus:
+    host: ${MILVUS_HOST:localhost}
+    port: ${MILVUS_PORT:19530}
+    database: ${MILVUS_DATABASE:default}
+    collection-name: ${MILVUS_COLLECTION:psychological_knowledge}
+    index-type: ${MILVUS_INDEX_TYPE:IVF_FLAT}
+    metric-type: ${MILVUS_METRIC_TYPE:COSINE}
+    enabled: ${MILVUS_ENABLED:false}
+
+  vector:
+    store:
+      primary: ${VECTOR_STORE_PRIMARY:chroma}
+      fallback: ${VECTOR_STORE_FALLBACK:inmemory}
+      strategy: ${VECTOR_STORE_STRATEGY:PRIMARY_FALLBACK}
+    search:
+      top-k: ${VECTOR_SEARCH_TOP_K:5}
+      similarity-threshold: ${VECTOR_SIMILARITY_THRESHOLD:0.3}
+    memory:
+      max-size: ${VECTOR_MEMORY_MAX_SIZE:100000}
+    redis-cache:
+      enabled: ${VECTOR_REDIS_CACHE_ENABLED:true}
+      ttl: ${VECTOR_REDIS_CACHE_TTL:24h}
+      key-prefix: ${VECTOR_REDIS_CACHE_PREFIX:calmara:embedding:}
+
+  external:
+    whisper:
+      url: ${WHISPER_URL:http://localhost:9000/asr}
+      timeout: ${WHISPER_TIMEOUT:60000}
+    mediapipe:
+      url: ${MEDIAPIPE_URL:http://localhost:8001/analyze}
+      timeout: ${MEDIAPIPE_TIMEOUT:30000}
+
+  mcp:
+    email:
+      host: ${SMTP_HOST:}
+      port: ${SMTP_PORT:587}
+      username: ${SMTP_USERNAME:}
+      password: ${SMTP_PASSWORD:}
+      from: ${EMAIL_FROM:}
+      enabled: ${EMAIL_ENABLED:false}
+    excel:
+      output-dir: ${EXCEL_OUTPUT_DIR:./data/reports}
+
+  risk:
+    thresholds:
+      low: ${RISK_THRESHOLD_LOW:1.0}
+      high: ${RISK_THRESHOLD_HIGH:2.0}
+    weights:
+      text: ${RISK_WEIGHT_TEXT:0.1}
+      audio: ${RISK_WEIGHT_AUDIO:0.4}
+      visual: ${RISK_WEIGHT_VISUAL:0.5}
+
+  knowledge:
+    base-path: ${KNOWLEDGE_BASE_PATH:./knowledge-base}
+    auto-load: ${KNOWLEDGE_AUTO_LOAD:true}
+    max-documents: ${KNOWLEDGE_MAX_DOCUMENTS:50000}
+    hot-reload:
+      enabled: ${KNOWLEDGE_HOT_RELOAD:true}
+      interval: ${KNOWLEDGE_HOT_RELOAD_INTERVAL:300000}
+    classpath-location: ${KNOWLEDGE_CLASSPATH:classpath:knowledge/}
+    external-sources:
+      enabled: ${KNOWLEDGE_EXTERNAL_SOURCES:false}
+
+  alert:
+    recipients: ${ALERT_RECIPIENTS:counselor@calmara.edu}
+
+  chat:
+    use-multi-agent: ${USE_MULTI_AGENT:true}
+
+  video:
+    frame-sample-count: ${VIDEO_FRAME_SAMPLE_COUNT:10}
+    max-frames: ${VIDEO_MAX_FRAMES:30}
+    time-weight-decay: ${VIDEO_TIME_WEIGHT_DECAY:0.1}
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+    allow-credentials: true
+    max-age: 3600
+
+  install:
+    lock-file: ${INSTALL_LOCK_FILE:./.install.lock}
+    script-path: classpath:db/migration/
+    auto-migrate: true
+
+  services:
+    auto-start: ${SERVICES_AUTO_START:true}
+    wait-timeout: ${SERVICES_WAIT_TIMEOUT:120}
+
+  config:
+    auto-generate: ${CONFIG_AUTO_GENERATE:true}
+    env-file: ${CONFIG_ENV_FILE:./.env}
+
+  path:
+    base: ${CALMARA_BASE_PATH:./}
+    data: ${CALMARA_DATA_PATH:./data}
+    logs: ${CALMARA_LOGS_PATH:./logs}
+    temp: ${CALMARA_TEMP_PATH:./temp}
+    models: ${CALMARA_MODELS_PATH:./models}
+    knowledge: ${CALMARA_KNOWLEDGE_PATH:./knowledge-base}
+    reports: ${CALMARA_REPORTS_PATH:./data/reports}
+    exports: ${CALMARA_EXPORTS_PATH:./data/exports}
+
+  finetune:
+    enabled: ${FINETUNE_ENABLED:true}
+    base-path: ${FINETUNE_BASE_PATH:./llm}
+    config-path: ${FINETUNE_CONFIG_PATH:./llm/config}
+    output-path: ${FINETUNE_OUTPUT_PATH:./llm/output}
+    scripts-path: ${FINETUNE_SCRIPTS_PATH:./llm/scripts}
+    min-new-documents: ${FINETUNE_MIN_DOCS:1000}
+    min-days-since-last: ${FINETUNE_MIN_DAYS:7}
+    training-script: ${FINETUNE_TRAINING_SCRIPT:scripts/train_lora_enhanced.py}
+    config-file: ${FINETUNE_CONFIG_FILE:config/training_config.json}
+    state-file: ${FINETUNE_STATE_FILE:config/finetune_state.json}
+    log-file: ${FINETUNE_LOG_FILE:logs/finetune.log}
+    max-cpu-percent: ${FINETUNE_MAX_CPU:70}
+    max-memory-percent: ${FINETUNE_MAX_MEMORY:85}
+    max-training-hours: ${FINETUNE_MAX_HOURS:6}
+    remote:
+      enabled: ${FINETUNE_REMOTE_ENABLED:false}
+      host: ${FINETUNE_REMOTE_HOST:}
+      port: ${FINETUNE_REMOTE_PORT:22}
+      username: ${FINETUNE_REMOTE_USERNAME:}
+      private-key-path: ${FINETUNE_REMOTE_KEY_PATH:}
+      remote-model-path: ${FINETUNE_REMOTE_MODEL_PATH:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.calmara: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.web: ${LOG_LEVEL_SPRING:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

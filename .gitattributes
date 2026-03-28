@@ -1,0 +1,10 @@
+*.safetensors filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.gguf filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.onnx filter=lfs diff=lfs merge=lfs -text
+knowledge-base/merged_knowledge_base.json filter=lfs diff=lfs merge=lfs -text
+knowledge-base/external/SoulChatCorpus/*.json filter=lfs diff=lfs merge=lfs -text
+llm/dataset/*.json filter=lfs diff=lfs merge=lfs -text
+llm/scripts/dataset/*.json filter=lfs diff=lfs merge=lfs -text

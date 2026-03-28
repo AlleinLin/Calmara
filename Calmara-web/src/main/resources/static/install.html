@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calmara 心理健康智能体 - 系统安装</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .install-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .install-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .install-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .install-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .install-steps {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            color: #6c757d;
+        }
+
+        .step.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .step.completed {
+            color: #28a745;
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .step.active .step-number {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+
+        .install-content {
+            padding: 40px;
+        }
+
+        .step-content {
+            display: none;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group .hint {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .requirement-list {
+            list-style: none;
+        }
+
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .requirement-item.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .requirement-item.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+
+        .requirement-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 14px;
+        }
+
+        .requirement-item.success .requirement-icon {
+            background: #28a745;
+            color: white;
+        }
+
+        .requirement-item.error .requirement-icon {
+            background: #dc3545;
+            color: white;
+        }
+
+        .requirement-item.loading .requirement-icon {
+            background: #ffc107;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .install-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .log-item {
+            margin-bottom: 5px;
+        }
+
+        .log-success { color: #4ec9b0; }
+        .log-error { color: #f14c4c; }
+        .log-info { color: #3794ff; }
+        .log-warning { color: #cca700; }
+
+        .success-icon {
+            font-size: 64px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .success-icon .icon {
+            color: #28a745;
+        }
+
+        .database-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .database-info h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .database-info p {
+            font-size: 13px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="install-container">
+        <div class="install-header">
+            <h1>🧠 Calmara 心理健康智能体</h1>
+            <p>系统安装向导 · 版本 1.0.0</p>
+        </div>
+
+        <div class="install-steps">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <span>环境检测</span>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <span>数据库配置</span>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <span>管理员设置</span>
+            </div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <span>完成安装</span>
+            </div>
+        </div>
+
+        <div class="install-content">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div id="step1" class="step-content active">
+                <h2>环境检测</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">正在检测您的服务器环境是否满足安装要求...</p>
+
+                <ul class="requirement-list" id="requirementList">
+                    <li class="requirement-item loading">
+                        <div class="requirement-icon">⏳</div>
+                        <span>检测中...</span>
+                    </li>
+                </ul>
+
+                <div class="btn-group">
+                    <div></div>
+                    <button class="btn btn-primary" id="btnStep1Next" disabled onclick="goToStep(2)">
+                        下一步 →
+                    </button>
+                </div>
+            </div>
+
+            <div id="step2" class="step-content">
+                <h2>数据库配置</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">检测数据库连接状态</p>
+
+                <div class="database-info" id="databaseInfo">
+                    <h4>📊 数据库信息</h4>
+                    <p><strong>状态:</strong> <span id="dbStatus">检测中...</span></p>
+                    <p><strong>类型:</strong> <span id="dbType">-</span></p>
+                    <p><strong>版本:</strong> <span id="dbVersion">-</span></p>
+                </div>
+
+                <div id="dbAlert" class="alert alert-info">
+                    系统将自动创建所需的数据表结构
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">← 上一步</button>
+                    <button class="btn btn-primary" id="btnStep2Next" onclick="goToStep(3)">
+                        下一步 →
+                    </button>
+                </div>
+            </div>
+
+            <div id="step3" class="step-content">
+                <h2>管理员设置</h2>
+                <p style="color: #6c757d; margin-bottom: 20px;">创建系统管理员账户</p>
+
+                <form id="adminForm">
+                    <div class="form-group">
+                        <label>管理员用户名 *</label>
+                        <input type="text" id="adminUsername" placeholder="请输入管理员用户名" required>
+                        <div class="hint">用于登录系统后台管理</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>管理员密码 *</label>
+                        <input type="password" id="adminPassword" placeholder="请输入管理员密码" required>
+                        <div class="hint">密码长度至少8位，建议包含字母和数字</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>确认密码 *</label>
+                        <input type="password" id="adminPasswordConfirm" placeholder="请再次输入密码" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>管理员邮箱 *</label>
+                        <input type="email" id="adminEmail" placeholder="请输入管理员邮箱" required>
+                        <div class="hint">用于接收系统预警通知</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>真实姓名</label>
+                        <input type="text" id="adminRealName" placeholder="请输入真实姓名（可选）">
+                    </div>
+                </form>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="goToStep(2)">← 上一步</button>
+                    <button class="btn btn-primary" id="btnInstall" onclick="executeInstall()">
+                        开始安装
+                    </button>
+                </div>
+            </div>
+
+            <div id="step4" class="step-content">
+                <div id="installProgress">
+                    <h2>正在安装...</h2>
+                    <p style="color: #6c757d; margin-bottom: 20px;">请稍候，系统正在进行安装配置</p>
+
+                    <div class="install-log" id="installLog"></div>
+                </div>
+
+                <div id="installSuccess" style="display: none;">
+                    <div class="success-icon">
+                        <span class="icon">✓</span>
+                    </div>
+                    <h2 style="text-align: center;">🎉 安装完成！</h2>
+                    <p style="text-align: center; color: #6c757d; margin: 20px 0;">
+                        Calmara 心理健康智能体系统已成功安装
+                    </p>
+
+                    <div class="alert alert-success">
+                        <strong>安装信息：</strong><br>
+                        系统版本: 1.0.0<br>
+                        安装时间: <span id="installTime"></span>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button class="btn btn-primary" onclick="window.location.href='/'">
+                            进入系统 →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let installData = {};
+
+        function updateProgress() {
+            const progress = (currentStep / 4) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function updateSteps() {
+            document.querySelectorAll('.step').forEach(step => {
+                const stepNum = parseInt(step.dataset.step);
+                step.classList.remove('active', 'completed');
+
+                if (stepNum < currentStep) {
+                    step.classList.add('completed');
+                } else if (stepNum === currentStep) {
+                    step.classList.add('active');
+                }
+            });
+
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('step' + currentStep).classList.add('active');
+
+            updateProgress();
+        }
+
+        function goToStep(step) {
+            if (step === 3) {
+                const username = document.getElementById('adminUsername').value.trim();
+                const password = document.getElementById('adminPassword').value;
+                const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
+                const email = document.getElementById('adminEmail').value.trim();
+
+                if (!username || !password || !email) {
+                    alert('请填写所有必填项');
+                    return;
+                }
+
+                if (password.length < 8) {
+                    alert('密码长度至少8位');
+                    return;
+                }
+
+                if (password !== passwordConfirm) {
+                    alert('两次输入的密码不一致');
+                    return;
+                }
+
+                installData.adminUsername = username;
+                installData.adminPassword = password;
+                installData.adminEmail = email;
+                installData.adminRealName = document.getElementById('adminRealName').value.trim();
+            }
+
+            currentStep = step;
+            updateSteps();
+        }
+
+        async function checkRequirements() {
+            const list = document.getElementById('requirementList');
+            list.innerHTML = '';
+
+            const requirements = [
+                { name: 'Java 环境', key: 'javaOk' },
+                { name: '内存配置', key: 'memoryOk' },
+                { name: '数据库连接', key: 'databaseConnected' }
+            ];
+
+            try {
+                const response = await fetch('/install/requirements');
+                const result = await response.json();
+                const data = result.data;
+
+                requirements.forEach(req => {
+                    const isOk = data[req.key];
+                    const li = document.createElement('li');
+                    li.className = 'requirement-item ' + (isOk ? 'success' : 'error');
+                    li.innerHTML = `
+                        <div class="requirement-icon">${isOk ? '✓' : '✗'}</div>
+                        <span>${req.name}</span>
+                    `;
+                    list.appendChild(li);
+                });
+
+                const infoLi = document.createElement('li');
+                infoLi.className = 'requirement-item';
+                infoLi.innerHTML = `
+                    <div class="requirement-icon" style="background: #6c757d; color: white;">i</div>
+                    <span>Java版本: ${data.javaVersion} | 内存: ${data.maxMemory}</span>
+                `;
+                list.appendChild(infoLi);
+
+                document.getElementById('btnStep1Next').disabled = !data.allOk;
+
+                if (!data.allOk) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-error';
+                    alertDiv.innerHTML = '<strong>环境检测未通过</strong><br>请检查上述不满足的条件后刷新页面重试';
+                    document.getElementById('step1').insertBefore(alertDiv, document.querySelector('#step1 .btn-group'));
+                }
+
+            } catch (error) {
+                list.innerHTML = `
+                    <li class="requirement-item error">
+                        <div class="requirement-icon">✗</div>
+                        <span>检测失败: ${error.message}</span>
+                    </li>
+                `;
+            }
+        }
+
+        async function checkDatabase() {
+            try {
+                const response = await fetch('/install/database-info');
+                const result = await response.json();
+                const data = result.data;
+
+                if (data.connected) {
+                    document.getElementById('dbStatus').innerHTML = '<span style="color: #28a745;">✓ 已连接</span>';
+                    document.getElementById('dbType').textContent = data.databaseProductName;
+                    document.getElementById('dbVersion').textContent = data.databaseProductVersion;
+                } else {
+                    document.getElementById('dbStatus').innerHTML = '<span style="color: #dc3545;">✗ 连接失败</span>';
+                    document.getElementById('dbAlert').className = 'alert alert-error';
+                    document.getElementById('dbAlert').textContent = '数据库连接失败: ' + (data.errorMessage || '请检查配置');
+                    document.getElementById('btnStep2Next').disabled = true;
+                }
+
+            } catch (error) {
+                document.getElementById('dbStatus').innerHTML = '<span style="color: #dc3545;">✗ 检测失败</span>';
+                document.getElementById('btnStep2Next').disabled = true;
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('installLog');
+            const item = document.createElement('div');
+            item.className = 'log-item log-' + type;
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(item);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function executeInstall() {
+            currentStep = 4;
+            updateSteps();
+
+            addLog('开始系统安装...', 'info');
+
+            try {
+                addLog('正在初始化数据库...', 'info');
+                await new Promise(r => setTimeout(r, 500));
+
+                const response = await fetch('/install/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(installData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    addLog('数据库初始化完成', 'success');
+                    addLog('管理员账户创建成功', 'success');
+                    addLog('系统配置完成', 'success');
+                    addLog('安装完成！', 'success');
+
+                    setTimeout(() => {
+                        document.getElementById('installProgress').style.display = 'none';
+                        document.getElementById('installSuccess').style.display = 'block';
+                        document.getElementById('installTime').textContent = new Date().toLocaleString();
+                    }, 1000);
+
+                } else {
+                    addLog('安装失败: ' + result.message, 'error');
+                }
+
+            } catch (error) {
+                addLog('安装失败: ' + error.message, 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkRequirements();
+            checkDatabase();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# 忽略模型文件（太大不上传到 GitHub）
+*.safetensors
+*.bin
+*.gguf
+*.pth
+*.pt
+*.onnx
+
+# 保留下载脚本
+!download_model.py
+!README.md
+
+# 忽略索引文件
+*.index.json
+
+# 忽略缓存
+.mdl
+.msc
+.mv

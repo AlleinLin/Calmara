@@ -1,0 +1,38 @@
+{
+  "soulchat_corpus": {
+    "name": "SoulChatCorpus 心理健康对话数据集",
+    "source": "华南理工大学",
+    "url": "https://www.modelscope.cn/datasets/YIRONGCHEN/SoulChatCorpus",
+    "description": "258,354个多轮对话，总共1,517,344轮",
+    "format": "JSON",
+    "license": "研究用途",
+    "status": "需要手动下载"
+  },
+  "efaqa_corpus": {
+    "name": "心理咨询问答语料库",
+    "source": "Chatopera",
+    "url": "https://github.com/chatopera/efaqa-corpus-zh",
+    "description": "20,000条心理咨询数据",
+    "format": "JSON",
+    "license": "春松许可证 v1.0",
+    "status": "需要购买证书"
+  },
+  "psydt_corpus": {
+    "name": "PsyDTCorpus 心理咨询师数字孪生数据集",
+    "source": "华南理工大学",
+    "url": "https://hyper.ai/cn/datasets/35465",
+    "description": "5,000个高质量对话，90,365轮",
+    "format": "JSON",
+    "license": "研究用途",
+    "status": "需要申请"
+  },
+  "mental_health_chatbot": {
+    "name": "Mental Health Chatbot Dataset",
+    "source": "HuggingFace",
+    "url": "https://huggingface.co/datasets/heliosbrahma/mental_health_chatbot_dataset",
+    "description": "172个心理健康对话样本",
+    "format": "Parquet",
+    "license": "开源",
+    "status": "已下载"
+  }
+}

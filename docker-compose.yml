@@ -1,0 +1,372 @@
+version: '3.8'
+
+services:
+  # ==================== 核心应用服务 ====================
+  calmara-app:
+    build:
+      context: ./Calmara
+      dockerfile: Dockerfile
+    container_name: calmara-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/calmara
+      - SPRING_DATASOURCE_USERNAME=calmara
+      - SPRING_DATASOURCE_PASSWORD=calmara_password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - CALMARA_EXTERNAL_WHISPER_URL=http://whisper-service:8001
+      - CALMARA_EXTERNAL_MEDIAPIPE_URL=http://mediapipe-service:8002
+      - CALMARA_EXTERNAL_VIDEO_URL=http://video-service:8003
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      whisper-service:
+        condition: service_started
+      mediapipe-service:
+        condition: service_started
+      ollama:
+        condition: service_started
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ==================== 数据库服务 ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: calmara-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=calmara
+      - POSTGRES_USER=calmara
+      - POSTGRES_PASSWORD=calmara_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C.UTF-8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calmara -d calmara"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== 缓存服务 ====================
+  redis:
+    image: redis:7-alpine
+    container_name: calmara-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== 向量数据库 ====================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: calmara-chromadb
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - ALLOW_RESET=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Ollama LLM服务 ====================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: calmara-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== Whisper语音识别服务 ====================
+  whisper-service:
+    build:
+      context: ./services/whisper_service
+      dockerfile: Dockerfile
+    container_name: calmara-whisper
+    ports:
+      - "8001:8001"
+    environment:
+      - WHISPER_MODEL_SIZE=large-v3
+      - WHISPER_DEVICE=cuda
+      - WHISPER_COMPUTE_TYPE=float16
+      - API_KEY=${WHISPER_API_KEY:-calmara_whisper_key}
+      - HOST=0.0.0.0
+      - PORT=8001
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - whisper-models:/root/.cache/huggingface
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== MediaPipe情绪识别服务 ====================
+  mediapipe-service:
+    build:
+      context: ./services/mediapipe_service
+      dockerfile: Dockerfile
+    container_name: calmara-mediapipe
+    ports:
+      - "8002:8002"
+    environment:
+      - DEVICE=cuda
+      - API_KEY=${MEDIAPIPE_API_KEY:-calmara_mediapipe_key}
+      - HOST=0.0.0.0
+      - PORT=8002
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== 视频处理服务 ====================
+  video-service:
+    build:
+      context: ./services/video_service
+      dockerfile: Dockerfile
+    container_name: calmara-video
+    ports:
+      - "8003:8003"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8003
+      - MEDIAPIPE_SERVICE_URL=http://mediapipe-service:8002
+    volumes:
+      - video-temp:/tmp/video
+    networks:
+      - calmara-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== LoRA微调服务 ====================
+  finetune-service:
+    build:
+      context: ./services/finetune_service
+      dockerfile: Dockerfile
+    container_name: calmara-finetune
+    ports:
+      - "8004:8004"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8004
+      - BASE_MODEL=Qwen/Qwen2.5-7B-Instruct
+      - OUTPUT_DIR=/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - finetune-output:/output
+      - finetune-data:/data
+      - huggingface-cache:/root/.cache/huggingface
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  # ==================== Nginx反向代理 ====================
+  nginx:
+    image: nginx:alpine
+    container_name: calmara-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - calmara-app
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  # ==================== 监控服务 ====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: calmara-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: calmara-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=calmara_grafana_admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  # ==================== 日志收集 ====================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: calmara-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: calmara-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+  # ==================== 邮件服务 ====================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: calmara-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - calmara-network
+    restart: unless-stopped
+
+# ==================== 网络配置 ====================
+networks:
+  calmara-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# ==================== 数据卷配置 ====================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  chroma-data:
+    driver: local
+  ollama-data:
+    driver: local
+  whisper-models:
+    driver: local
+  video-temp:
+    driver: local
+  finetune-output:
+    driver: local
+  finetune-data:
+    driver: local
+  huggingface-cache:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  elasticsearch-data:
+    driver: local

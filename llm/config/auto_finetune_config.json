@@ -1,0 +1,62 @@
+{
+    "auto_finetune": {
+        "enabled": true,
+        "trigger": {
+            "type": "threshold",
+            "min_new_documents": 1000,
+            "min_days_since_last_training": 7,
+            "schedule_cron": "0 2 * * 0"
+        },
+        "resource_control": {
+            "max_gpu_memory_percent": 80,
+            "max_cpu_memory_percent": 70,
+            "max_training_hours": 6,
+            "cool_down_minutes": 30,
+            "temperature_threshold_celsius": 85,
+            "pause_on_high_temp": true
+        },
+        "training_strategy": {
+            "mode": "incremental",
+            "max_samples": 50000,
+            "epochs": 3,
+            "learning_rate": 1e-4,
+            "batch_size": 4,
+            "gradient_accumulation_steps": 8,
+            "lora_rank": 32,
+            "lora_alpha": 64,
+            "max_length": 512,
+            "use_4bit": true,
+            "save_every_n_epochs": 1
+        },
+        "evaluation": {
+            "enabled": true,
+            "test_samples": 500,
+            "metrics": ["perplexity", "response_quality", "safety_score"],
+            "min_improvement_percent": 2,
+            "rollback_on_degradation": true
+        },
+        "model_management": {
+            "keep_best_only": true,
+            "max_checkpoints": 3,
+            "auto_deploy": false,
+            "backup_before_update": true
+        },
+        "notification": {
+            "on_start": true,
+            "on_complete": true,
+            "on_failure": true,
+            "webhook_url": "",
+            "email_recipients": []
+        },
+        "remote_server": {
+            "enabled": false,
+            "host": "",
+            "port": 22,
+            "username": "",
+            "private_key_path": "",
+            "remote_model_path": "",
+            "remote_data_path": "",
+            "use_ssh_tunnel": false
+        }
+    }
+}
